@@ -48,7 +48,7 @@ Jellyfin installs the plugin and handles updates for you. No building, no file c
    - **Repository Name:** `Seerr Progress`
    - **Repository URL:**
      ```
-     https://raw.githubusercontent.com/YOU/REPO/main/manifest.json
+     https://raw.githubusercontent.com/maxime-delobel/Seerr-Download-Progress-Plugin-Jellyfin/main/manifest.json
      ```
 3. Save. Then open the **Catalog** tab, find **Seerr Progress** (category *General*), click **Install**, and restart Jellyfin.
 4. Open **Dashboard → Plugins → Seerr Progress → Settings** and fill in:
