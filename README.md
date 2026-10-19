@@ -16,6 +16,7 @@ Seerr only shows download progress inside Seerr. If Seerr is only reachable on y
 - Season packs are grouped into one entry (Sonarr lists a pack once per episode).
 - Seerr stays private. The Seerr API key is stored on the Jellyfin server and never reaches the browser.
 - Status endpoint is protected by Jellyfin login.
+- Installs and updates from the Jellyfin plugin catalog by adding this repository.
 
 Tested with **Jellyfin 12.2** and **Seerr 3.4.1**.
 
@@ -35,9 +36,72 @@ Browser ──(Jellyfin login)──> Jellyfin plugin ──(API key)──> See
 - Seerr reachable from the Jellyfin server, plus a Seerr API key (Seerr → Settings → General).
 - Radarr and/or Sonarr connected to Seerr. Progress comes from their download queues.
 - The [JavaScript Injector](https://github.com/n00bcodr/Jellyfin-JavaScript-Injector) plugin, to load the script into the web UI.
-- To build: the .NET 10 SDK.
 
-## Build
+## Install
+
+### Option 1: Add the plugin repository (recommended)
+
+Jellyfin installs the plugin and handles updates for you. No building, no file copying.
+
+1. In Jellyfin, open **Dashboard → Plugins → Repositories** and click **+**.
+2. Fill in:
+   - **Repository Name:** `Seerr Progress`
+   - **Repository URL:**
+     ```
+     https://raw.githubusercontent.com/YOU/REPO/main/manifest.json
+     ```
+3. Save. Then open the **Catalog** tab, find **Seerr Progress** (category *General*), click **Install**, and restart Jellyfin.
+4. Open **Dashboard → Plugins → Seerr Progress → Settings** and fill in:
+   - **Seerr URL**: as the Jellyfin server sees it, for example `http://192.168.1.20:5055`.
+   - **Seerr API key**.
+5. Install the **JavaScript Injector** plugin from the catalog and restart Jellyfin. Then add a script with this content and turn on *Requires Authentication*:
+   ```js
+   import('/SeerrProgress/client.js');
+   ```
+   This step is needed because a plugin can't load its own script into the web UI.
+6. Hard-refresh the browser (Ctrl+Shift+R) and open an item that is downloading.
+
+When a new version is released, Jellyfin shows the update in **Dashboard → Plugins**. Update it there and restart Jellyfin.
+
+### Option 2: Manual install
+
+Use this if you want to build the plugin yourself or can't add the repository.
+
+1. Build the plugin, see [Build from source](#build-from-source).
+2. Create the plugin folder on the Jellyfin server and copy in the DLL and `meta.json`:
+
+   ```bash
+   mkdir -p /var/lib/jellyfin/plugins/SeerrProgress_1.0.0.0
+   cp out/Jellyfin.Plugin.SeerrProgress.dll meta.json /var/lib/jellyfin/plugins/SeerrProgress_1.0.0.0/
+   ```
+
+   For a remote server, `scp` the files to a temporary folder first and move them into place on the server.
+
+3. **Fix the ownership.** Jellyfin must be able to write to `meta.json`. If the files are owned by root, Jellyfin fails to start with `Access to the path '.../meta.json' is denied`.
+
+   ```bash
+   chown -R jellyfin:jellyfin /var/lib/jellyfin/plugins/SeerrProgress_1.0.0.0
+   ```
+
+   Run this after every update too.
+
+4. Restart Jellyfin:
+
+   ```bash
+   systemctl restart jellyfin
+   ```
+
+   Docker users: put the folder under the `plugins/` directory of the volume mounted as `/config` and restart the container.
+
+5. Continue with steps 4 to 6 of Option 1 (settings, JavaScript Injector, hard refresh).
+
+A yellow "error occurred while getting the plugin details from the repository" banner on the plugin page is normal for manually installed plugins.
+
+To update a manual install, rebuild, copy the DLL over the old one, run the `chown` from step 3, restart Jellyfin, and hard-refresh the browser. `client.js` is embedded in the DLL, so there is nothing else to copy.
+
+## Build from source
+
+Only needed for the manual install or for development. Requires the .NET 10 SDK.
 
 ```bash
 dotnet publish -c Release -o out
@@ -53,51 +117,6 @@ podman run --rm -v "$PWD":/src:Z -w /src mcr.microsoft.com/dotnet/sdk:10.0 dotne
 
 (Use `docker` and drop `:Z` if you don't use Podman with SELinux.)
 
-## Install
-
-1. Create the plugin folder on the Jellyfin server and copy in the DLL and `meta.json`:
-
-   ```bash
-   mkdir -p /var/lib/jellyfin/plugins/SeerrProgress_1.0.0.0
-   cp out/Jellyfin.Plugin.SeerrProgress.dll meta.json /var/lib/jellyfin/plugins/SeerrProgress_1.0.0.0/
-   ```
-
-   For a remote server, `scp` the files to a temporary folder first and move them into place on the server.
-
-2. **Fix the ownership.** Jellyfin must be able to write to `meta.json`. If the files are owned by root, Jellyfin fails to start with `Access to the path '.../meta.json' is denied`.
-
-   ```bash
-   chown -R jellyfin:jellyfin /var/lib/jellyfin/plugins/SeerrProgress_1.0.0.0
-   ```
-
-   Run this after every update too.
-
-3. Restart Jellyfin:
-
-   ```bash
-   systemctl restart jellyfin
-   ```
-
-   Docker users: put the folder under the `plugins/` directory of the volume mounted as `/config` and restart the container.
-
-4. Open **Dashboard → Plugins → Seerr Progress → Settings** and fill in:
-   - **Seerr URL**: as the Jellyfin server sees it, for example `http://192.168.1.20:5055`.
-   - **Seerr API key**.
-
-   A yellow "error occurred while getting the plugin details from the repository" banner on the plugin page is normal for manually installed plugins.
-
-5. Install the **JavaScript Injector** plugin from the catalog, restart Jellyfin, then add a script with this content and turn on *Requires Authentication*:
-
-   ```js
-   import('/SeerrProgress/client.js');
-   ```
-
-6. Hard-refresh the browser (Ctrl+Shift+R) and open an item that is downloading.
-
-## Updating
-
-Rebuild, copy the DLL over the old one, run the `chown` from step 2, restart Jellyfin, and hard-refresh the browser. `client.js` is embedded in the DLL, so there is nothing else to copy.
-
 ## Limitations
 
 - **Delay.** The numbers come from Seerr, which gets them from Sonarr/Radarr's queue. They trail your torrent client by a short while. The plugin itself adds only a few seconds.
@@ -110,12 +129,14 @@ Rebuild, copy the DLL over the old one, run the `chown` from step 2, restart Jel
 
 | Problem | Check |
 |---|---|
-| Jellyfin won't start, log says `Access to the path ... meta.json is denied` | Run the `chown` from the install steps. |
-| Plugin doesn't show up | Check the Jellyfin log for a version mismatch. The plugin targets Jellyfin 12.0 or newer (`targetAbi` 12.0.0.0). |
+| Plugin doesn't appear in the catalog after adding the repository | Check that the repository URL opens in a browser and shows JSON. Then check that the `targetAbi` in `manifest.json` is not newer than your Jellyfin version. |
+| Install from the catalog fails | The `checksum` in `manifest.json` must be the MD5 of the exact zip attached to the release. |
+| Jellyfin won't start, log says `Access to the path ... meta.json is denied` | Manual install only. Run the `chown` from the manual install steps. |
+| Plugin doesn't show up after install | Check the Jellyfin log for a version mismatch. The plugin targets Jellyfin 12.0 or newer (`targetAbi` 12.0.0.0). |
 | No pill | Open `https://<jellyfin>/SeerrProgress/client.js` in the browser. If it loads, the plugin works and the script injection is the problem. |
 | Still no pill | In the browser console run `ApiClient.getJSON(ApiClient.getUrl('SeerrProgress/Status')).then(console.log)`. `401` means the request isn't authenticated, `502` means Jellyfin can't reach Seerr (check URL and key), and `[]` means Seerr reports nothing in processing. |
-| Pill shows "Processing" with no percentage | Seerr has the request but no download info yet. Check Seerr's request in the Seerr UI. |
-| Old behavior after an update | Hard-refresh the browser, and confirm the new DLL is on the server. |
+| Pill shows "Processing" with no percentage | Seerr has the request but no download info yet. Check the request in the Seerr UI. |
+| Old behavior after an update | Hard-refresh the browser, and confirm the new version is installed in Dashboard → Plugins. |
 
 ## API
 
@@ -151,6 +172,23 @@ Rebuild, copy the DLL over the old one, run the `chown` from step 2, restart Jel
 
 This build targets Jellyfin 12 (.NET 10). For Jellyfin 10.11 you would change `TargetFramework` to `net9.0`, the `Jellyfin.Controller` package to `10.11.*`, and `targetAbi` in `meta.json` to `10.11.0.0`. This is untested.
 
+## Releasing a new version (maintainers)
+
+1. Bump the version in `SeerrProgress.csproj` and `meta.json`.
+2. Build and zip the DLL, then get the MD5:
+   ```bash
+   dotnet publish -c Release -o out
+   cd out && zip seerr-progress_X.Y.Z.W.zip Jellyfin.Plugin.SeerrProgress.dll
+   md5sum seerr-progress_X.Y.Z.W.zip
+   ```
+3. Create a GitHub release with the tag `vX.Y.Z.W` and attach the zip:
+   ```bash
+   gh release create vX.Y.Z.W out/seerr-progress_X.Y.Z.W.zip --title "vX.Y.Z.W - Short description" --notes "What changed"
+   ```
+4. Add a new entry at the top of `versions` in `manifest.json` with the new `version`, `changelog`, `targetAbi`, `sourceUrl` (the release asset URL), `checksum` (the MD5 from step 2) and `timestamp`, then commit and push.
+
+Don't re-zip the file after taking the MD5. A new zip usually has a different hash, and Jellyfin refuses to install a file whose hash doesn't match.
+
 ## Project layout
 
 ```
@@ -161,8 +199,10 @@ SeerrProgressController.cs     /SeerrProgress/Status and /SeerrProgress/client.j
 Web/config.html                settings page
 Web/client.js                  pill and hover menu in the web UI
 meta.json                      plugin manifest for manual installs
+manifest.json                  plugin repository manifest for the Jellyfin catalog
+images/                        screenshots used in this README
 ```
 
 ## License
 
-Add a license of your choice (for example MIT) before publishing.
+GPL-3.0. See [LICENSE](LICENSE).
