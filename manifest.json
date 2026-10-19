@@ -4,7 +4,7 @@
     "name": "Seerr Progress",
     "description": "Shows Seerr download progress on Jellyfin item pages.",
     "overview": "Download progress pill from Seerr",
-    "owner": "YOUR_NAME",
+    "owner": "Maxime Delobel",
     "category": "General",
     "imageUrl": "https://raw.githubusercontent.com/maxime-delobel/Seerr-Download-Progress-Plugin-Jellyfin/images/logo.png",
     "versions": [
