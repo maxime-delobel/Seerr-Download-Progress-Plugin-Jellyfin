@@ -6,7 +6,7 @@
     "overview": "Download progress pill from Seerr",
     "owner": "Maxime Delobel",
     "category": "General",
-    "imageUrl": "https://github.com/maxime-delobel/Seerr-Download-Progress-Plugin-Jellyfin/blob/main/images/logo.png",
+    "imageUrl": "https://raw.githubusercontent.com/maxime-delobel/Seerr-Download-Progress-Plugin-Jellyfin/main/images/logo.png",
     "versions": [
       {
         "version": "1.0.0.0",
