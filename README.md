@@ -1,0 +1,1 @@
+# Seerr-Download-Progress-Plugin-Jellyfin
