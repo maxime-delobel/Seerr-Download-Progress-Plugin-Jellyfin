@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>Seerr Progress</title></head>
+<body>
+<div id="SeerrProgressConfigPage" data-role="page" class="page type-interior pluginConfigurationPage" data-require="emby-input,emby-button">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="SeerrProgressForm">
+                <div class="inputContainer">
+                    <input is="emby-input" type="text" id="SeerrUrl" label="Seerr URL (reachable from the Jellyfin server)" />
+                </div>
+                <div class="inputContainer">
+                    <input is="emby-input" type="password" id="ApiKey" label="Seerr API key" />
+                </div>
+                <button is="emby-button" type="submit" class="raised button-submit block"><span>Save</span></button>
+            </form>
+        </div>
+    </div>
+    <script type="text/javascript">
+        var pluginId = 'b7c1d2e3-4f5a-4b6c-8d7e-9f0a1b2c3d4e';
+        document.querySelector('#SeerrProgressConfigPage').addEventListener('pageshow', function () {
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(pluginId).then(function (c) {
+                document.querySelector('#SeerrUrl').value = c.SeerrUrl || '';
+                document.querySelector('#ApiKey').value = c.ApiKey || '';
+                Dashboard.hideLoadingMsg();
+            });
+        });
+        document.querySelector('#SeerrProgressForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+            Dashboard.showLoadingMsg();
+            ApiClient.getPluginConfiguration(pluginId).then(function (c) {
+                c.SeerrUrl = document.querySelector('#SeerrUrl').value;
+                c.ApiKey = document.querySelector('#ApiKey').value;
+                ApiClient.updatePluginConfiguration(pluginId, c).then(Dashboard.processPluginConfigurationUpdateResult);
+            });
+            return false;
+        });
+    </script>
+</div>
+</body>
+</html>
