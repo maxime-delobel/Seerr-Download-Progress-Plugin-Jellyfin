@@ -73,8 +73,8 @@ Use this if you want to build the plugin yourself or can't add the repository.
 2. Create the plugin folder on the Jellyfin server and copy in the DLL and `meta.json`:
 
    ```bash
-   mkdir -p /var/lib/jellyfin/plugins/SeerrProgress_1.1.2.0
-   cp out/Jellyfin.Plugin.SeerrProgress.dll meta.json /var/lib/jellyfin/plugins/SeerrProgress_1.1.2.0/
+   mkdir -p /var/lib/jellyfin/plugins/SeerrProgress_1.1.4.0
+   cp out/Jellyfin.Plugin.SeerrProgress.dll meta.json /var/lib/jellyfin/plugins/SeerrProgress_1.1.4.0/
    ```
 
    For a remote server, `scp` the files to a temporary folder first and move them into place on the server.
@@ -82,7 +82,7 @@ Use this if you want to build the plugin yourself or can't add the repository.
 3. **Fix the ownership.** Jellyfin must be able to write to `meta.json`. If the files are owned by root, Jellyfin fails to start with `Access to the path '.../meta.json' is denied`.
 
    ```bash
-   chown -R jellyfin:jellyfin /var/lib/jellyfin/plugins/SeerrProgress_1.1.2.0
+   chown -R jellyfin:jellyfin /var/lib/jellyfin/plugins/SeerrProgress_1.1.4.0
    ```
 
    Run this after every update too.
@@ -112,7 +112,7 @@ The pill only appears on pages of items that are already in your library. The re
    ```
 3. Hard-refresh the browser. The tab appears on the home screen and fills itself in.
 
-The script fills in the `seerr-requests` element wherever it is on screen, so any other plugin that can show HTML works too. Custom Tabs gives the tab no icon, so the script adds one next to the tab title (`playlist_add_check` by default). It finds the tab by its title, which must be `My Requests`. If you named the tab something else, set the same name in JavaScript Injector before the import: `window.SEERR_PROGRESS_TAB_TITLE = 'Your title';`. Pick another [Material icon](https://fonts.google.com/icons) with `<div id="seerr-requests" data-icon="inbox"></div>`.
+The script fills in the `seerr-requests` element wherever it is on screen, so any other plugin that can show HTML works too. Custom Tabs gives the tab no icon, so the script adds one next to the tab title. It finds the tab by its visible title, which must be `My Requests`. If you named the tab something else, set the same name in JavaScript Injector before the import: `window.SEERR_PROGRESS_TAB_TITLE = 'Your title';`.
 
 Each user needs a Seerr account linked to their Jellyfin account, which happens when they log in to Seerr with their Jellyfin login (or an admin imports the users). Users without one see a message telling them so.
 

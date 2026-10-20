@@ -27,7 +27,7 @@
         '.seerr-req-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}' +
         '.seerr-card{display:flex;gap:12px;padding:12px;border-radius:12px;background:#1c212b;border:1px solid #2a3140;color:#fff;' +
         'font-family:inherit;font-size:1rem;-webkit-font-smoothing:antialiased}' +
-        '.seerr-tab-icon{font-size:1.5em;margin-right:.35em;vertical-align:middle;line-height:1}' +
+        '.seerr-tab-icon{display:inline-flex;align-items:center;vertical-align:middle;margin-right:.45em;flex:0 0 auto}' +
         '.seerr-card.seerr-click{cursor:pointer}.seerr-card.seerr-click:hover{border-color:#3f485c}' +
         '.seerr-poster{flex:0 0 78px;height:117px;border-radius:8px;background:#2a3140 center/cover no-repeat}' +
         '.seerr-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}' +
@@ -239,23 +239,28 @@
     }
 
     // Custom Tabs gives the tab no icon, so add one next to the tab title.
-    // The tab's content is only added to the page once the tab is opened, so the
-    // tab button is found by its title instead of through the content.
-    var TAB_TITLE = String(window.SEERR_PROGRESS_TAB_TITLE || 'My Requests').trim().toLowerCase();
+    // Jellyfin 12 draws the tab row with its own components, so the tab is found by its
+    // visible text instead of by a class name, and the icon is an inline SVG (no icon font needed).
+    var TAB_TITLE = String(window.SEERR_PROGRESS_TAB_TITLE || 'My Requests').trim();
+    var TAB_ICON = '<svg viewBox="0 0 24 24" width="1.45em" height="1.45em" fill="currentColor" aria-hidden="true">' +
+        '<path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>';
 
     function addTabIcon() {
         try {
-            var btns = document.querySelectorAll('.emby-tab-button,[role="tab"]');
-            for (var i = 0; i < btns.length; i++) {
-                var b = btns[i];
-                if (b.querySelector('.seerr-tab-icon')) continue;
-                if ((b.textContent || '').trim().toLowerCase() !== TAB_TITLE) continue;
-                var box = document.getElementById('seerr-requests');
-                var icon = el('span', 'material-icons seerr-tab-icon',
-                    (box && box.getAttribute('data-icon')) || 'playlist_add_check');
-                icon.setAttribute('aria-hidden', 'true');
-                var host = b.querySelector('.emby-button-foreground') || b;
-                host.insertBefore(icon, host.firstChild);
+            if (TAB_TITLE.indexOf('"') > -1) return;
+            var snap = document.evaluate('//*[not(*) and normalize-space(.)="' + TAB_TITLE + '"]', document, null,
+                XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+            for (var i = 0; i < snap.snapshotLength; i++) {
+                var leaf = snap.snapshotItem(i);
+                if (leaf.hasAttribute('data-seerr-icon')) continue;
+                if (leaf.closest('#seerr-requests,.seerr-card')) continue;
+
+                var icon = el('span', 'seerr-tab-icon');
+                icon.innerHTML = TAB_ICON;
+                var interactive = /^(BUTTON|A)$/.test(leaf.tagName) || leaf.getAttribute('role') === 'tab';
+                if (interactive) leaf.insertBefore(icon, leaf.firstChild);
+                else leaf.parentNode.insertBefore(icon, leaf);
+                leaf.setAttribute('data-seerr-icon', '1');
             }
         } catch (e) {
             console.debug('SeerrProgress:', e);
