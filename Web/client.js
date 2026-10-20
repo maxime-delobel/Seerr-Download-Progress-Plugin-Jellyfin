@@ -4,6 +4,7 @@
 
     var style = document.createElement('style');
     style.textContent =
+        /* progress pill */
         '.seerr-pill{display:inline-flex;align-items:center;gap:.5em;margin:.6em 0;padding:.35em .9em;cursor:pointer;' +
         'border-radius:999px;border:1px solid #22a55a;font-weight:600;font-size:.95em;color:#fff;' +
         'background:#2a3140;position:relative;overflow:hidden;z-index:0}' +
@@ -11,6 +12,7 @@
         '.seerr-pill .seerr-spin{width:.9em;height:.9em;border:2px solid rgba(255,255,255,.35);' +
         'border-top-color:#fff;border-radius:50%;animation:seerr-rot 1s linear infinite}' +
         '@keyframes seerr-rot{to{transform:rotate(360deg)}}' +
+        /* hover menu */
         '.seerr-tip{position:fixed;z-index:100000;width:min(380px,92vw);padding:12px 14px;border-radius:12px;' +
         'background:rgba(24,28,38,.97);border:1px solid #333b4d;color:#fff;box-shadow:0 10px 30px rgba(0,0,0,.55);' +
         'backdrop-filter:blur(8px);text-align:left}' +
@@ -19,19 +21,33 @@
         '.seerr-tip .seerr-name{font-size:.85em;line-height:1.35;word-break:break-all}' +
         '.seerr-tip .seerr-track{height:6px;border-radius:3px;background:#2e3547;margin:7px 0 5px;overflow:hidden}' +
         '.seerr-tip .seerr-bar{height:100%;border-radius:3px;background:#22a55a;transition:width .6s}' +
-        '.seerr-tip .seerr-meta{display:flex;justify-content:space-between;font-size:.78em;opacity:.75}';
+        '.seerr-tip .seerr-meta{display:flex;justify-content:space-between;font-size:.78em;opacity:.75}' +
+        /* requests tab */
+        '.seerr-req-wrap{padding:1em 3.3%}' +
+        '.seerr-req-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}' +
+        '.seerr-card{display:flex;gap:12px;padding:12px;border-radius:12px;background:#1c212b;border:1px solid #2a3140;color:#fff}' +
+        '.seerr-card.seerr-click{cursor:pointer}.seerr-card.seerr-click:hover{border-color:#3f485c}' +
+        '.seerr-poster{flex:0 0 78px;height:117px;border-radius:8px;background:#2a3140 center/cover no-repeat}' +
+        '.seerr-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}' +
+        '.seerr-title{font-weight:600;line-height:1.25;word-break:break-word}' +
+        '.seerr-sub{font-size:.8em;opacity:.65}' +
+        '.seerr-badge{align-self:flex-start;font-size:.75em;font-weight:600;padding:.2em .7em;border-radius:999px;border:1px solid}' +
+        '.seerr-st-pending{color:#f0b429;border-color:#f0b429}' +
+        '.seerr-st-approved{color:#5aa9ff;border-color:#5aa9ff}' +
+        '.seerr-st-downloading{color:#3ddc84;border-color:#3ddc84}' +
+        '.seerr-st-partial{color:#2ec4b6;border-color:#2ec4b6}' +
+        '.seerr-st-available{color:#22a55a;border-color:#22a55a;background:rgba(34,165,90,.15)}' +
+        '.seerr-st-declined,.seerr-st-failed{color:#ff6b6b;border-color:#ff6b6b}' +
+        '.seerr-card .seerr-track{height:6px;border-radius:3px;background:#2e3547;overflow:hidden}' +
+        '.seerr-card .seerr-bar{height:100%;border-radius:3px;background:#22a55a;transition:width .6s}' +
+        '.seerr-msg{opacity:.7;padding:1.5em 0}';
     document.head.appendChild(style);
 
-    var itemCache = {};
-    var currentItems = [];
-
-    function currentItemId() {
-        var m = /[?&]id=([0-9a-f]{32}|[0-9a-f-]{36})/i.exec(location.hash);
-        return location.hash.indexOf('details') > -1 && m ? m[1] : null;
-    }
-
-    function removePill() {
-        document.querySelectorAll('.seerr-pill,.seerr-tip').forEach(function (e) { e.remove(); });
+    function el(tag, cls, text) {
+        var e = document.createElement(tag);
+        if (cls) e.className = cls;
+        if (text != null) e.textContent = text; // textContent on purpose: names come from outside
+        return e;
     }
 
     function fmtTime(t) {
@@ -43,11 +59,18 @@
         return Math.max(mi, 1) + 'm';
     }
 
-    function el(tag, cls, text) {
-        var e = document.createElement(tag);
-        if (cls) e.className = cls;
-        if (text != null) e.textContent = text; // textContent on purpose: release names are untrusted
-        return e;
+    /* ================= progress pill on item pages ================= */
+
+    var itemCache = {};
+    var currentItems = [];
+
+    function currentItemId() {
+        var m = /[?&]id=([0-9a-f]{32}|[0-9a-f-]{36})/i.exec(location.hash);
+        return location.hash.indexOf('details') > -1 && m ? m[1] : null;
+    }
+
+    function removePill() {
+        document.querySelectorAll('.seerr-pill,.seerr-tip').forEach(function (e) { e.remove(); });
     }
 
     function renderTip(tip) {
@@ -99,7 +122,7 @@
         return itemCache[id];
     }
 
-    async function tick() {
+    async function pillTick() {
         try {
             if (typeof ApiClient === 'undefined' || !ApiClient.getCurrentUserId()) return;
             var id = currentItemId();
@@ -148,7 +171,137 @@
         }
     }
 
-    window.addEventListener('hashchange', function () { removePill(); tick(); });
-    setInterval(tick, 5000);
-    tick();
+    /* ================= "My requests" tab =================
+       Put <div id="seerr-requests"></div> in a Custom Tab (or any HTML spot).
+       The script fills it in whenever it is on screen. */
+
+    var STATES = {
+        pending: 'Waiting for approval',
+        approved: 'Approved, waiting for download',
+        downloading: 'Downloading',
+        partial: 'Partially available',
+        available: 'Available',
+        declined: 'Declined',
+        failed: 'Failed'
+    };
+
+    var reqData = null;
+    var reqAt = 0;
+    var reqBusy = false;
+
+    function seasonLabel(list) {
+        if (!list || !list.length) return '';
+        if (list.length > 2 && list[list.length - 1] - list[0] === list.length - 1) {
+            return 'Seasons ' + list[0] + '\u2013' + list[list.length - 1];
+        }
+        return (list.length === 1 ? 'Season ' : 'Seasons ') + list.join(', ');
+    }
+
+    async function openInLibrary(r) {
+        try {
+            var res = await ApiClient.getItems(ApiClient.getCurrentUserId(), {
+                AnyProviderIdEquals: 'tmdb.' + r.tmdbId,
+                IncludeItemTypes: r.type === 'tv' ? 'Series' : 'Movie',
+                Recursive: true,
+                Limit: 1
+            });
+            if (res.Items && res.Items.length) location.hash = '#/details?id=' + res.Items[0].Id;
+        } catch (e) {
+            console.debug('SeerrProgress:', e);
+        }
+    }
+
+    function renderRequests(box, data) {
+        box.textContent = '';
+        var wrap = el('div', 'seerr-req-wrap');
+        box.appendChild(wrap);
+
+        if (data === 'error') {
+            wrap.appendChild(el('div', 'seerr-msg', 'Could not load your requests right now.'));
+            return;
+        }
+        if (!data.configured) {
+            wrap.appendChild(el('div', 'seerr-msg', 'Seerr Progress is not configured yet. Ask the server admin to set the Seerr URL and API key.'));
+            return;
+        }
+        if (!data.linked) {
+            wrap.appendChild(el('div', 'seerr-msg', 'Your Jellyfin account is not linked to a Seerr user yet. Log in to Seerr once with your Jellyfin account, then reload.'));
+            return;
+        }
+        if (!data.requests.length) {
+            wrap.appendChild(el('div', 'seerr-msg', 'You have no requests yet.'));
+            return;
+        }
+
+        var grid = el('div', 'seerr-req-grid');
+        data.requests.forEach(function (r) {
+            var card = el('div', 'seerr-card');
+            if (r.state === 'available' || r.state === 'partial' || r.state === 'downloading') {
+                card.className += ' seerr-click';
+                card.addEventListener('click', function () { openInLibrary(r); });
+            }
+
+            var poster = el('div', 'seerr-poster');
+            if (r.poster) poster.style.backgroundImage = 'url("https://image.tmdb.org/t/p/w185' + r.poster + '")';
+            card.appendChild(poster);
+
+            var body = el('div', 'seerr-body');
+            body.appendChild(el('div', 'seerr-title', r.title + (r.year ? ' (' + r.year + ')' : '')));
+
+            var sub = [r.type === 'tv' ? 'Series' : 'Movie'];
+            var seasons = seasonLabel(r.seasons);
+            if (seasons) sub.push(seasons);
+            if (r.is4k) sub.push('4K');
+            if (r.requestedAt) sub.push('requested ' + new Date(r.requestedAt).toLocaleDateString());
+            body.appendChild(el('div', 'seerr-sub', sub.join(' \u00b7 ')));
+
+            body.appendChild(el('span', 'seerr-badge seerr-st-' + r.state, STATES[r.state] || r.state));
+
+            if (r.state === 'downloading') {
+                var pct = r.percent == null ? 0 : Math.max(0, Math.min(100, r.percent));
+                var track = el('div', 'seerr-track');
+                var bar = el('div', 'seerr-bar');
+                bar.style.width = pct + '%';
+                track.appendChild(bar);
+                body.appendChild(track);
+                body.appendChild(el('div', 'seerr-sub',
+                    (r.percent == null ? 'Starting' : Math.round(pct) + '%') +
+                    (r.timeLeft ? ' \u00b7 ' + fmtTime(r.timeLeft) + ' left' : '')));
+            }
+
+            card.appendChild(body);
+            grid.appendChild(card);
+        });
+        wrap.appendChild(grid);
+    }
+
+    async function requestsTick() {
+        var box = document.getElementById('seerr-requests');
+        if (!box || box.offsetParent === null) return; // not on screen
+        if (typeof ApiClient === 'undefined' || !ApiClient.getCurrentUserId()) return;
+
+        var fresh = Date.now() - reqAt < 5000;
+        if (fresh && reqData) {
+            if (!box.firstChild) renderRequests(box, reqData);
+            return;
+        }
+        if (reqBusy) return;
+        reqBusy = true;
+        try {
+            reqData = await ApiClient.getJSON(ApiClient.getUrl('SeerrProgress/Requests'));
+            reqAt = Date.now();
+            renderRequests(box, reqData);
+        } catch (e) {
+            console.debug('SeerrProgress:', e);
+            if (!box.firstChild) renderRequests(box, 'error');
+        } finally {
+            reqBusy = false;
+        }
+    }
+
+    window.addEventListener('hashchange', function () { removePill(); pillTick(); });
+    setInterval(pillTick, 5000);
+    setInterval(requestsTick, 2000);
+    pillTick();
+    requestsTick();
 })();
