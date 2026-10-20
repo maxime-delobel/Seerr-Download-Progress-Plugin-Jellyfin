@@ -239,17 +239,24 @@
     }
 
     // Custom Tabs gives the tab no icon, so add one next to the tab title.
-    function addTabIcon(box) {
+    // The tab's content is only added to the page once the tab is opened, so the
+    // tab button is found by its title instead of through the content.
+    var TAB_TITLE = String(window.SEERR_PROGRESS_TAB_TITLE || 'My Requests').trim().toLowerCase();
+
+    function addTabIcon() {
         try {
-            var panel = box.closest('[data-index]');
-            var idx = panel && panel.getAttribute('data-index');
-            if (idx == null) return;
-            var btn = document.querySelector('.emby-tab-button[data-index="' + idx + '"]');
-            if (!btn || btn.querySelector('.seerr-tab-icon')) return;
-            var icon = el('span', 'material-icons seerr-tab-icon', box.getAttribute('data-icon') || 'playlist_add_check');
-            icon.setAttribute('aria-hidden', 'true');
-            var host = btn.querySelector('.emby-button-foreground') || btn;
-            host.insertBefore(icon, host.firstChild);
+            var btns = document.querySelectorAll('.emby-tab-button,[role="tab"]');
+            for (var i = 0; i < btns.length; i++) {
+                var b = btns[i];
+                if (b.querySelector('.seerr-tab-icon')) continue;
+                if ((b.textContent || '').trim().toLowerCase() !== TAB_TITLE) continue;
+                var box = document.getElementById('seerr-requests');
+                var icon = el('span', 'material-icons seerr-tab-icon',
+                    (box && box.getAttribute('data-icon')) || 'playlist_add_check');
+                icon.setAttribute('aria-hidden', 'true');
+                var host = b.querySelector('.emby-button-foreground') || b;
+                host.insertBefore(icon, host.firstChild);
+            }
         } catch (e) {
             console.debug('SeerrProgress:', e);
         }
@@ -321,7 +328,6 @@
 
     async function requestsTick() {
         var box = document.getElementById('seerr-requests');
-        if (box) addTabIcon(box);
         if (!box || box.offsetParent === null) return; // not on screen
         if (typeof ApiClient === 'undefined' || !ApiClient.getCurrentUserId()) return;
 
@@ -347,6 +353,7 @@
     window.addEventListener('hashchange', function () { removePill(); pillTick(); });
     setInterval(pillTick, 5000);
     setInterval(requestsTick, 2000);
+    setInterval(addTabIcon, 1500);
     pillTick();
     requestsTick();
 })();
