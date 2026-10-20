@@ -25,11 +25,13 @@
         /* requests tab */
         '.seerr-req-wrap{padding:1em 3.3%}' +
         '.seerr-req-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}' +
-        '.seerr-card{display:flex;gap:12px;padding:12px;border-radius:12px;background:#1c212b;border:1px solid #2a3140;color:#fff}' +
+        '.seerr-card{display:flex;gap:12px;padding:12px;border-radius:12px;background:#1c212b;border:1px solid #2a3140;color:#fff;' +
+        'font-family:inherit;font-size:1rem;-webkit-font-smoothing:antialiased}' +
+        '.seerr-tab-icon{font-size:1.5em;margin-right:.35em;vertical-align:middle;line-height:1}' +
         '.seerr-card.seerr-click{cursor:pointer}.seerr-card.seerr-click:hover{border-color:#3f485c}' +
         '.seerr-poster{flex:0 0 78px;height:117px;border-radius:8px;background:#2a3140 center/cover no-repeat}' +
         '.seerr-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}' +
-        '.seerr-title{font-weight:600;line-height:1.25;word-break:break-word}' +
+        '.seerr-title{font-size:1.05em;font-weight:600;line-height:1.3;letter-spacing:normal;word-break:break-word}' +
         '.seerr-sub{font-size:.8em;opacity:.65}' +
         '.seerr-badge{align-self:flex-start;font-size:.75em;font-weight:600;padding:.2em .7em;border-radius:999px;border:1px solid}' +
         '.seerr-st-pending{color:#f0b429;border-color:#f0b429}' +
@@ -198,14 +200,56 @@
     }
 
     async function openInLibrary(r) {
-        try {
-            var res = await ApiClient.getItems(ApiClient.getCurrentUserId(), {
-                AnyProviderIdEquals: 'tmdb.' + r.tmdbId,
-                IncludeItemTypes: r.type === 'tv' ? 'Series' : 'Movie',
-                Recursive: true,
-                Limit: 1
+        var userId = ApiClient.getCurrentUserId();
+        var type = r.type === 'tv' ? 'Series' : 'Movie';
+        var want = String(r.tmdbId);
+
+        // Only accept an item whose TMDB id really matches, so a filter the server
+        // ignores can never open the wrong title.
+        function match(items) {
+            return (items || []).find(function (i) {
+                var p = i.ProviderIds || {};
+                return i.Type === type && String(p.Tmdb || p.tmdb || '') === want;
             });
-            if (res.Items && res.Items.length) location.hash = '#/details?id=' + res.Items[0].Id;
+        }
+
+        try {
+            var res = await ApiClient.getItems(userId, {
+                AnyProviderIdEquals: 'tmdb.' + want,
+                IncludeItemTypes: type,
+                Recursive: true,
+                Fields: 'ProviderIds',
+                Limit: 10
+            });
+            var hit = match(res.Items);
+            if (!hit && r.title) {
+                res = await ApiClient.getItems(userId, {
+                    SearchTerm: r.title,
+                    IncludeItemTypes: type,
+                    Recursive: true,
+                    Fields: 'ProviderIds',
+                    Limit: 30
+                });
+                hit = match(res.Items);
+            }
+            if (hit) location.hash = '#/details?id=' + hit.Id;
+        } catch (e) {
+            console.debug('SeerrProgress:', e);
+        }
+    }
+
+    // Custom Tabs gives the tab no icon, so add one next to the tab title.
+    function addTabIcon(box) {
+        try {
+            var panel = box.closest('[data-index]');
+            var idx = panel && panel.getAttribute('data-index');
+            if (idx == null) return;
+            var btn = document.querySelector('.emby-tab-button[data-index="' + idx + '"]');
+            if (!btn || btn.querySelector('.seerr-tab-icon')) return;
+            var icon = el('span', 'material-icons seerr-tab-icon', box.getAttribute('data-icon') || 'playlist_add_check');
+            icon.setAttribute('aria-hidden', 'true');
+            var host = btn.querySelector('.emby-button-foreground') || btn;
+            host.insertBefore(icon, host.firstChild);
         } catch (e) {
             console.debug('SeerrProgress:', e);
         }
@@ -277,6 +321,7 @@
 
     async function requestsTick() {
         var box = document.getElementById('seerr-requests');
+        if (box) addTabIcon(box);
         if (!box || box.offsetParent === null) return; // not on screen
         if (typeof ApiClient === 'undefined' || !ApiClient.getCurrentUserId()) return;
 
